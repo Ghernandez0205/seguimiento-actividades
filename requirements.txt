@@ -3,5 +3,5 @@ pandas
 office365-rest-python-client
 msal
 requests
-opencv-python
 pillow
+opencv-python-headless
