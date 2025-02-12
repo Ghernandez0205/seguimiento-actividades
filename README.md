@@ -1,1 +1,1 @@
-# seuimiento-actividades
+# seguimiento-actividades
