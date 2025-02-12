@@ -6,6 +6,8 @@ from office365.sharepoint.client_context import ClientContext
 from msal import PublicClientApplication
 import requests
 from PIL import Image
+import pyotp  # Biblioteca para autenticación TOTP
+from fpdf import FPDF  # Biblioteca para crear PDFs
 
 # Configuración de la interfaz
 st.set_page_config(page_title="Registro Diario de Actividades", layout="wide")
@@ -16,12 +18,44 @@ TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"  # ID de Directorio (Inquilin
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES = ["Files.ReadWrite", "User.Read"]  # Permisos para OneDrive
 
+# Usuario autorizado (Solo este usuario podrá acceder)
+AUTHORIZED_EMAIL = "tu_correo@outlook.com"  # Reemplázalo con tu correo de Microsoft
+AUTHORIZED_USER_ID = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"  # Reemplázalo con tu ID único de Microsoft
+
+# Clave secreta para generar códigos en la App de Autenticador
+SECRET_KEY = "JBSWY3DPEHPK3PXP"  # Genera una clave secreta y agrégala aquí
+
+# Carpeta de almacenamiento de evidencias
+BASE_STORAGE_PATH = "C:/Users/sup11/OneDrive/Attachments/Documentos/Interfaces de phyton/Proyecto almacenamiento interactivo/Visitas"
+
+def generate_totp():
+    """Genera el código dinámico TOTP."""
+    totp = pyotp.TOTP(SECRET_KEY)
+    return totp.now()
+
+def verify_totp(user_code):
+    """Verifica si el código TOTP ingresado es correcto."""
+    totp = pyotp.TOTP(SECRET_KEY)
+    return totp.verify(user_code)
+
+def save_images_as_pdf(image_list, pdf_path):
+    """Convierte una lista de imágenes en un único archivo PDF."""
+    if image_list:
+        pdf = FPDF()
+        for img_path in image_list:
+            pdf.add_page()
+            pdf.image(img_path, x=10, y=10, w=190)
+        pdf.output(pdf_path, "F")
+
 # Configuración de la aplicación como cliente público
 app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY, token_cache=None)
 
 if "token" not in st.session_state:
     st.session_state["token"] = None
     st.session_state["token_expiration"] = datetime.now()
+    st.session_state["user_email"] = None
+    st.session_state["user_id"] = None
+    st.session_state["totp_verified"] = False
 
 def authenticate():
     """Autenticación usando Device Code Flow para Streamlit Cloud."""
@@ -35,7 +69,23 @@ def authenticate():
             if "access_token" in result:
                 st.session_state["token"] = result["access_token"]
                 st.session_state["token_expiration"] = datetime.now() + timedelta(hours=1)
-                st.success("✅ Autenticado con éxito")
+                
+                # Obtener información del usuario autenticado
+                user_info = requests.get("https://graph.microsoft.com/v1.0/me", 
+                                        headers={"Authorization": f"Bearer {st.session_state['token']}"})
+                user_data = user_info.json()
+                st.session_state["user_email"] = user_data.get("mail")
+                st.session_state["user_id"] = user_data.get("id")
+                
+                # Validar que sea el usuario autorizado
+                if st.session_state["user_email"] != AUTHORIZED_EMAIL or st.session_state["user_id"] != AUTHORIZED_USER_ID:
+                    st.error("🚫 Acceso denegado: Solo el usuario autorizado puede usar esta aplicación.")
+                    st.session_state["token"] = None
+                    st.session_state["user_email"] = None
+                    st.session_state["user_id"] = None
+                else:
+                    st.session_state["totp_verified"] = False  # Siempre deshabilitar TOTP hasta verificarlo
+                    st.experimental_rerun()
             else:
                 st.error("❌ Error en la autenticación: " + str(result))
         else:
@@ -46,96 +96,24 @@ def authenticate():
 # Cerrar sesión automáticamente si el token expira
 if st.session_state.get("token") and datetime.now() > st.session_state.get("token_expiration"):
     st.session_state["token"] = None
+    st.session_state["totp_verified"] = False
     st.warning("⚠️ Tu sesión ha expirado. Vuelve a autenticarse.")
 
 if not st.session_state.get("token"):
     if st.button("Autenticarse con Microsoft"):
         authenticate()
 else:
-    st.success("Sesión activa")
-    if st.button("Cerrar Sesión"):
-        st.session_state["token"] = None
-        st.experimental_rerun()
-
-# SharePoint/OneDrive Configuración
-if st.session_state.get("token"):
-    headers = {"Authorization": f"Bearer {st.session_state['token']}"}
-    onedrive_url = "https://graph.microsoft.com/v1.0/me/drive/root:/Visitas/"
-
-    # Título
-    st.title("Registro Diario de Actividades Laborales")
-
-    # Selección de fecha
-    fecha_actividad = st.date_input("Fecha de la actividad", datetime.today())
-
-    # Menú desplegable de actividades
-    tipo_actividad = st.selectbox(
-        "Selecciona el tipo de actividad",
-        [
-            "Visita Técnica Pedagógica",
-            "Visita Técnico-Administrativa",
-            "Jornada Académica",
-            "Curso",
-            "Taller",
-            "Actividad Relevante"
-        ]
-    )
-
-    # Entrada de sede y notas
-    sede_evento = st.text_input("Sede del evento")
-    notas_evento = st.text_area("Notas del evento")
-
-    # Horario de la actividad
-    hora_inicio = st.time_input("Hora de inicio")
-    hora_termino = st.time_input("Hora de término")
-
-    # Captura de imagen desde la cámara
-    st.write("Capturar evidencia con cámara")
-    camera_image = st.camera_input("Tomar foto")
-    
-    # Subida de evidencias en PDF
-    evidencia_pdf = st.file_uploader("Subir evidencia en PDF", type=["pdf"])
-
-    # Subida de imágenes desde el dispositivo
-    evidencia_fotos = st.file_uploader(
-        "Subir hasta 3 fotos de evidencia", type=["jpg", "png", "jpeg"], accept_multiple_files=True
-    )
-
-    # Crear estructura de carpetas en OneDrive
-    mes_actual = datetime.today().strftime("%Y-%m")
-    actividad_folder = f"{tipo_actividad}_{fecha_actividad.strftime('%Y-%m-%d')}"
-    folder_path = f"Visitas/{mes_actual}/{actividad_folder}"
-    
-    # Guardado de datos en OneDrive
-    def upload_to_onedrive(file, file_name):
-        upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/{folder_path}/{file_name}:/content"
-        response = requests.put(upload_url, headers=headers, data=file.getbuffer())
-        if response.status_code == 201:
-            st.success(f"{file_name} subido exitosamente a OneDrive")
-        else:
-            st.error(f"Error al subir {file_name}: {response.text}")
-    
-    if st.button("Guardar Registro"):
-        data = {
-            "Fecha": [fecha_actividad.strftime("%Y-%m-%d")],
-            "Tipo de Actividad": [tipo_actividad],
-            "Sede": [sede_evento],
-            "Notas": [notas_evento],
-            "Hora Inicio": [hora_inicio.strftime("%H:%M")],
-            "Hora Término": [hora_termino.strftime("%H:%M")]
-        }
-        df = pd.DataFrame(data)
-        archivo_excel = "registro_actividades.xlsx"
-        df.to_excel(archivo_excel, index=False)
-        
-        with open(archivo_excel, "rb") as file:
-            upload_to_onedrive(file, archivo_excel)
-        
-        if evidencia_pdf:
-            upload_to_onedrive(evidencia_pdf, evidencia_pdf.name)
-        
-        for idx, foto in enumerate(evidencia_fotos):
-            upload_to_onedrive(foto, f"evidencia_{idx+1}.jpg")
-        
-        st.success("Registro guardado exitosamente en OneDrive y Excel")
+    if not st.session_state.get("totp_verified"):
+        st.info("🔐 Introduce el código dinámico generado en tu App de Autenticador.")
+        user_totp = st.text_input("Código TOTP", max_chars=6, type="password")
+        if st.button("Verificar Código"):
+            if verify_totp(user_totp):
+                st.session_state["totp_verified"] = True
+                st.success("✅ Autenticación completada con éxito.")
+            else:
+                st.error("🚫 Código incorrecto. Intenta de nuevo.")
+                st.session_state["totp_verified"] = False
+                st.experimental_rerun()
+    else:
+        st.success(f"Sesión activa como {st.session_state['user_email']}")
 
