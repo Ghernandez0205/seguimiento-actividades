@@ -16,7 +16,8 @@ TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"  # ID de Directorio (Inquilin
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES = ["Files.ReadWrite", "User.Read"]  # Permisos para OneDrive
 
-app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
+# Configuración de la aplicación como cliente público
+app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY, token_cache=None)
 
 if "token" not in st.session_state:
     st.session_state["token"] = None
@@ -25,27 +26,24 @@ if "token" not in st.session_state:
 def authenticate():
     """Autenticación usando Device Code Flow para Streamlit Cloud."""
     st.write("Intentando autenticar...")
-    accounts = app.get_accounts()
-    if accounts:
-        result = app.acquire_token_silent(SCOPES, account=accounts[0])
-    else:
+    try:
         flow = app.initiate_device_flow(SCOPES)
         if "user_code" in flow:
             st.write("🔗 Ve a [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) e ingresa este código:")
             st.code(flow['user_code'])
             result = app.acquire_token_by_device_flow(flow)
+            if "access_token" in result:
+                st.session_state["token"] = result["access_token"]
+                st.session_state["token_expiration"] = datetime.now() + timedelta(hours=1)
+                st.success("✅ Autenticado con éxito")
+            else:
+                st.error("❌ Error en la autenticación: " + str(result))
         else:
             st.error("Error al obtener el código de autenticación.")
-            return
-    
-    if "access_token" in result:
-        st.session_state["token"] = result["access_token"]
-        st.session_state["token_expiration"] = datetime.now() + timedelta(hours=1)
-        st.success("✅ Autenticado con éxito")
-    else:
-        st.error("❌ Error en la autenticación: " + str(result))
+    except Exception as e:
+        st.error(f"Error en la autenticación: {e}")
 
-# Cerrar sesión
+# Cerrar sesión automáticamente si el token expira
 if st.session_state.get("token") and datetime.now() > st.session_state.get("token_expiration"):
     st.session_state["token"] = None
     st.warning("⚠️ Tu sesión ha expirado. Vuelve a autenticarse.")
@@ -140,3 +138,4 @@ if st.session_state.get("token"):
             upload_to_onedrive(foto, f"evidencia_{idx+1}.jpg")
         
         st.success("Registro guardado exitosamente en OneDrive y Excel")
+
