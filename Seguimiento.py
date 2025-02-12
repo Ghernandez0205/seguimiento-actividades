@@ -1,45 +1,63 @@
 import streamlit as st
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from office365.sharepoint.client_context import ClientContext
 from msal import PublicClientApplication
 import requests
-import cv2
 from PIL import Image
 
 # Configuración de la interfaz
 st.set_page_config(page_title="Registro Diario de Actividades", layout="wide")
 
 # Configuración de autenticación con MSAL
-CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
-TENANT_ID = "common"
+CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"  # ID de aplicación de Azure
+TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"  # ID de Directorio (Inquilino)
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES = ["Files.ReadWrite", "User.Read"]  # Permisos para OneDrive
 
 app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
-st.session_state["token"] = None
 
-# Función para autenticación
+if "token" not in st.session_state:
+    st.session_state["token"] = None
+    st.session_state["token_expiration"] = datetime.now()
+
 def authenticate():
+    """Autenticación usando Device Code Flow para Streamlit Cloud."""
+    st.write("Intentando autenticar...")
     accounts = app.get_accounts()
     if accounts:
         result = app.acquire_token_silent(SCOPES, account=accounts[0])
     else:
-        result = app.acquire_token_interactive(SCOPES)
+        flow = app.initiate_device_flow(SCOPES)
+        if "user_code" in flow:
+            st.write("🔗 Ve a [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) e ingresa este código:")
+            st.code(flow['user_code'])
+            result = app.acquire_token_by_device_flow(flow)
+        else:
+            st.error("Error al obtener el código de autenticación.")
+            return
     
     if "access_token" in result:
         st.session_state["token"] = result["access_token"]
-        st.success("Autenticado con éxito")
+        st.session_state["token_expiration"] = datetime.now() + timedelta(hours=1)
+        st.success("✅ Autenticado con éxito")
     else:
-        st.error("Error en la autenticación")
+        st.error("❌ Error en la autenticación: " + str(result))
 
-# Botón de autenticación
+# Cerrar sesión
+if st.session_state.get("token") and datetime.now() > st.session_state.get("token_expiration"):
+    st.session_state["token"] = None
+    st.warning("⚠️ Tu sesión ha expirado. Vuelve a autenticarse.")
+
 if not st.session_state.get("token"):
     if st.button("Autenticarse con Microsoft"):
         authenticate()
 else:
     st.success("Sesión activa")
+    if st.button("Cerrar Sesión"):
+        st.session_state["token"] = None
+        st.experimental_rerun()
 
 # SharePoint/OneDrive Configuración
 if st.session_state.get("token"):
@@ -122,4 +140,3 @@ if st.session_state.get("token"):
             upload_to_onedrive(foto, f"evidencia_{idx+1}.jpg")
         
         st.success("Registro guardado exitosamente en OneDrive y Excel")
-
