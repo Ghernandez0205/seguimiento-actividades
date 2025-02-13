@@ -47,6 +47,43 @@ def save_images_as_pdf(image_list, pdf_path):
             pdf.image(img_path, x=10, y=10, w=190)
         pdf.output(pdf_path, "F")
 
+def scan_and_save_pdf(activity_name):
+    """Función para capturar imágenes con la cámara y guardarlas como un solo PDF."""
+    st.write("📷 Escaneo de documentos")
+    images = []
+    for i in range(3):  # Permitir tomar hasta 3 fotos
+        photo = st.camera_input(f"Tomar foto {i+1}")
+        if photo is not None:
+            fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+            mes_actual = datetime.now().strftime("%Y-%m")
+            folder_path = os.path.join(BASE_STORAGE_PATH, mes_actual)
+            os.makedirs(folder_path, exist_ok=True)
+            file_path = os.path.join(folder_path, f"{activity_name}_{fecha_hora}_{i+1}.jpg")
+            with open(file_path, "wb") as f:
+                f.write(photo.getbuffer())
+            images.append(file_path)
+    
+    if images:
+        pdf_path = os.path.join(folder_path, f"{activity_name}_{fecha_hora}.pdf")
+        save_images_as_pdf(images, pdf_path)
+        st.success(f"✅ PDF guardado en {pdf_path}")
+
+def upload_evidence_files(activity_name):
+    """Función para seleccionar imágenes desde el dispositivo y guardarlas con la nomenclatura adecuada."""
+    uploaded_files = st.file_uploader("Subir evidencias (imágenes)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    if uploaded_files:
+        fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        mes_actual = datetime.now().strftime("%Y-%m")
+        folder_path = os.path.join(BASE_STORAGE_PATH, mes_actual)
+        os.makedirs(folder_path, exist_ok=True)
+        file_paths = []
+        for i, file in enumerate(uploaded_files):
+            file_path = os.path.join(folder_path, f"{activity_name}_{fecha_hora}_evidencia_{i+1}.jpg")
+            with open(file_path, "wb") as f:
+                f.write(file.getbuffer())
+            file_paths.append(file_path)
+        st.success(f"✅ Evidencias guardadas en {folder_path}")
+
 # Configuración de la aplicación como cliente público
 app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY, token_cache=None)
 
@@ -56,48 +93,6 @@ if "token" not in st.session_state:
     st.session_state["user_email"] = None
     st.session_state["user_id"] = None
     st.session_state["totp_verified"] = False
-
-def authenticate():
-    """Autenticación usando Device Code Flow para Streamlit Cloud."""
-    st.write("Intentando autenticar...")
-    try:
-        flow = app.initiate_device_flow(SCOPES)
-        if "user_code" in flow:
-            st.write("🔗 Ve a [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) e ingresa este código:")
-            st.code(flow['user_code'])
-            result = app.acquire_token_by_device_flow(flow)
-            if "access_token" in result:
-                st.session_state["token"] = result["access_token"]
-                st.session_state["token_expiration"] = datetime.now() + timedelta(hours=1)
-                
-                # Obtener información del usuario autenticado
-                user_info = requests.get("https://graph.microsoft.com/v1.0/me", 
-                                        headers={"Authorization": f"Bearer {st.session_state['token']}"})
-                user_data = user_info.json()
-                st.session_state["user_email"] = user_data.get("mail")
-                st.session_state["user_id"] = user_data.get("id")
-                
-                # Validar que sea el usuario autorizado
-                if st.session_state["user_email"] != AUTHORIZED_EMAIL or st.session_state["user_id"] != AUTHORIZED_USER_ID:
-                    st.error("🚫 Acceso denegado: Solo el usuario autorizado puede usar esta aplicación.")
-                    st.session_state["token"] = None
-                    st.session_state["user_email"] = None
-                    st.session_state["user_id"] = None
-                else:
-                    st.session_state["totp_verified"] = False  # Siempre deshabilitar TOTP hasta verificarlo
-                    st.experimental_rerun()
-            else:
-                st.error("❌ Error en la autenticación: " + str(result))
-        else:
-            st.error("Error al obtener el código de autenticación.")
-    except Exception as e:
-        st.error(f"Error en la autenticación: {e}")
-
-# Cerrar sesión automáticamente si el token expira
-if st.session_state.get("token") and datetime.now() > st.session_state.get("token_expiration"):
-    st.session_state["token"] = None
-    st.session_state["totp_verified"] = False
-    st.warning("⚠️ Tu sesión ha expirado. Vuelve a autenticarse.")
 
 if not st.session_state.get("token"):
     if st.button("Autenticarse con Microsoft"):
@@ -116,4 +111,9 @@ else:
                 st.experimental_rerun()
     else:
         st.success(f"Sesión activa como {st.session_state['user_email']}")
-
+        
+        # Escaneo y conversión a PDF
+        activity_name = st.text_input("Nombre de la actividad:")
+        if activity_name:
+            scan_and_save_pdf(activity_name)
+            upload_evidence_files(activity_name)
