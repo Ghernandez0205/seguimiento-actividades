@@ -4,22 +4,23 @@ import requests
 import pyotp
 from datetime import datetime
 from msal import PublicClientApplication
-from fpdf import FPDF  # Para generar PDFs
+from fpdf import FPDF
+from PIL import Image
 
 # **CONFIGURACIÓN DE AZURE AD**
 CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
 TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"
-CLIENT_SECRET = "TU_SECRETO_DE_CLIENTE"  # 🔴 Reemplázalo con el secreto de cliente generado
+CLIENT_SECRET = "TU_SECRETO_DE_CLIENTE"
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 SCOPES = ["Files.ReadWrite", "User.Read"]
 
 # **CONFIGURACIÓN DE AUTENTICACIÓN (TOTP)**
-SECRET_KEY = "JBSWY3DPEHPK3PXP"  # 🔴 Cambia esto por una clave secreta segura
+SECRET_KEY = "JBSWY3DPEHPK3PXP"
 
-# **CONFIGURACIÓN DE ONEDRIVE**
-ONEDRIVE_UPLOAD_FOLDER = "/Documentos/RegistroActividades/"
+# **RUTA DE GUARDADO**
+BASE_STORAGE_PATH = "C:/Users/sup11/OneDrive/Attachments/Documentos/Interfaces de phyton/Proyecto almacenamiento interactivo/Visitas"
 
-# **FUNCION PARA GENERAR CÓDIGO TOTP**
+# **FUNCIONES PARA AUTENTICACIÓN**
 def generate_totp():
     totp = pyotp.TOTP(SECRET_KEY)
     return totp.now()
@@ -32,12 +33,7 @@ def verify_totp(user_code):
 def get_access_token():
     app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
     result = app.acquire_token_by_client_credentials(SCOPES, CLIENT_SECRET)
-
-    if "access_token" in result:
-        return result["access_token"]
-    else:
-        st.error(f"Error autenticando con Azure: {result.get('error_description', 'Desconocido')}")
-        return None
+    return result.get("access_token", None)
 
 # **FUNCIÓN PARA SUBIR ARCHIVOS A ONEDRIVE**
 def upload_to_onedrive(file_path, activity_name):
@@ -46,7 +42,7 @@ def upload_to_onedrive(file_path, activity_name):
         return False
 
     filename = os.path.basename(file_path)
-    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:{ONEDRIVE_UPLOAD_FOLDER}{activity_name}_{filename}:/content"
+    upload_url = f"https://graph.microsoft.com/v1.0/me/drive/root:/Visitas/{activity_name}/{filename}:/content"
 
     with open(file_path, "rb") as file:
         headers = {
@@ -55,32 +51,23 @@ def upload_to_onedrive(file_path, activity_name):
         }
         response = requests.put(upload_url, headers=headers, data=file)
 
-    if response.status_code in [200, 201]:
-        st.success(f"✅ Archivo subido a OneDrive: {filename}")
-        return True
-    else:
-        st.error(f"🚫 Error al subir archivo: {response.text}")
-        return False
+    return response.status_code in [200, 201]
 
-# **FUNCIÓN PARA ESCANEAR Y GUARDAR IMÁGENES COMO PDF**
-def save_images_as_pdf(image_list, pdf_path):
-    if image_list:
-        pdf = FPDF()
-        for img_path in image_list:
-            pdf.add_page()
-            pdf.image(img_path, x=10, y=10, w=190)
-        pdf.output(pdf_path, "F")
+# **FUNCIÓN PARA GUARDAR IMÁGENES COMO PDF**
+def save_images_as_pdf(images, pdf_path):
+    img_list = [Image.open(img).convert("RGB") for img in images]
+    img_list[0].save(pdf_path, save_all=True, append_images=img_list[1:])
 
 # **INTERFAZ EN STREAMLIT**
-st.set_page_config(page_title="Registro Diario de Actividades", layout="wide")
-st.title("📂 Registro de Actividades y Subida a OneDrive")
+st.set_page_config(page_title="Registro de Visitas", layout="wide")
+st.title("📂 Registro de Visitas y Subida a OneDrive")
 
-# **AUTENTICACIÓN: INGRESAR CÓDIGO TOTP**
+# **AUTENTICACIÓN**
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
-    st.info("🔐 Introduce el código dinámico generado en tu App de Autenticador.")
+    st.info("🔐 Introduce el código TOTP generado en tu App de Autenticador.")
     user_totp = st.text_input("Código TOTP", max_chars=6, type="password")
 
     if st.button("Verificar Código"):
@@ -92,41 +79,53 @@ if not st.session_state["authenticated"]:
             st.error("🚫 Código incorrecto. Intenta de nuevo.")
 
 else:
-    st.success("✅ Sesión iniciada con autenticación segura.")
-    
-    activity_name = st.text_input("📌 Nombre de la actividad:")
-    uploaded_file = st.file_uploader("📎 Cargar archivo de evidencia", type=["jpg", "jpeg", "png", "pdf"])
+    st.success("✅ Sesión iniciada correctamente.")
 
-    if activity_name and uploaded_file:
-        fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        save_folder = "temp_uploads"
-        os.makedirs(save_folder, exist_ok=True)
+    # **ENTRADA DE DATOS**
+    actividad = st.text_input("📌 Ingrese la actividad:")
+    fecha_actividad = st.date_input("📅 Seleccione la fecha de la actividad:")
+    año_actividad = fecha_actividad.strftime("%Y")
+    fecha_str = fecha_actividad.strftime("%Y-%m-%d")
 
-        file_path = os.path.join(save_folder, f"{activity_name}_{fecha_hora}_{uploaded_file.name}")
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
+    # **NOMENCLATURA Y CARPETA**
+    folder_name = f"{actividad}_{fecha_str}_{año_actividad}"
+    save_folder = os.path.join(BASE_STORAGE_PATH, folder_name)
+    os.makedirs(save_folder, exist_ok=True)
 
-        st.success(f"✅ Archivo guardado temporalmente: {file_path}")
+    # **SUBIR ARCHIVOS**
+    st.subheader("📎 Cargar archivos de evidencia")
+    uploaded_files = st.file_uploader("Selecciona hasta 3 imágenes", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-        if st.button("📤 Subir a OneDrive"):
-            upload_to_onedrive(file_path, activity_name)
+    if uploaded_files and len(uploaded_files) <= 3:
+        image_paths = []
+        for i, uploaded_file in enumerate(uploaded_files, 1):
+            image_path = os.path.join(save_folder, f"{actividad}_{fecha_str}_{año_actividad}_imagen{i}.jpg")
+            with open(image_path, "wb") as f:
+                f.write(uploaded_file.getbuffer())
+            image_paths.append(image_path)
 
-    # **OPCIÓN PARA ESCANEAR IMÁGENES Y GENERAR PDF**
-    st.subheader("📸 Escanear y Guardar como PDF")
-    images = []
-    for i in range(3):
-        photo = st.camera_input(f"Tomar foto {i+1}")
-        if photo:
-            fecha_hora = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-            img_path = os.path.join(save_folder, f"{activity_name}_{fecha_hora}_{i+1}.jpg")
-            with open(img_path, "wb") as f:
-                f.write(photo.getbuffer())
-            images.append(img_path)
+        st.success(f"✅ Imágenes guardadas en: {save_folder}")
 
-    if images:
-        pdf_path = os.path.join(save_folder, f"{activity_name}_{fecha_hora}.pdf")
-        save_images_as_pdf(images, pdf_path)
-        st.success(f"✅ PDF generado: {pdf_path}")
-        if st.button("📤 Subir PDF a OneDrive"):
-            upload_to_onedrive(pdf_path, activity_name)
+        # **GENERAR PDF SI SELECCIONÓ IMÁGENES**
+        if st.button("📄 Convertir imágenes en PDF"):
+            pdf_path = os.path.join(save_folder, f"{actividad}_{fecha_str}_{año_actividad}.pdf")
+            save_images_as_pdf(image_paths, pdf_path)
+            st.success(f"✅ PDF generado: {pdf_path}")
 
+            # **SUBIR PDF A ONEDRIVE**
+            if st.button("📤 Subir PDF a OneDrive"):
+                if upload_to_onedrive(pdf_path, actividad):
+                    st.success(f"✅ PDF subido a OneDrive: {pdf_path}")
+                else:
+                    st.error("🚫 Error al subir el archivo a OneDrive.")
+
+        # **SUBIR IMÁGENES A ONEDRIVE**
+        if st.button("📤 Subir imágenes a OneDrive"):
+            for image in image_paths:
+                if upload_to_onedrive(image, actividad):
+                    st.success(f"✅ {os.path.basename(image)} subido a OneDrive.")
+                else:
+                    st.error(f"🚫 Error al subir {os.path.basename(image)} a OneDrive.")
+
+    elif len(uploaded_files) > 3:
+        st.error("🚫 Solo puedes seleccionar hasta 3 imágenes.")
