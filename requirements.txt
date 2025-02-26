@@ -5,3 +5,4 @@ msal
 requests
 pillow
 opencv-python-headless
+fpdf
