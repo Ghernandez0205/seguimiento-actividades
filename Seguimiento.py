@@ -33,19 +33,13 @@ def verify_totp(user_code):
     totp = pyotp.TOTP(SECRET_KEY)
     return totp.verify(user_code)
 
-# **FUNCIÓN PARA OBTENER TOKEN**
-def get_access_token():
-    app = PublicClientApplication(CLIENT_ID, authority=AUTHORITY)
-    result = app.acquire_token_by_client_credentials(SCOPES, CLIENT_SECRET)
-    return result.get("access_token", None)
-
 # **FUNCIÓN PARA GUARDAR EN EXCEL Y CSV**
 def save_to_audit(data):
     df = pd.DataFrame([data])
     os.makedirs(BASE_STORAGE_PATH, exist_ok=True)
     
     if os.path.exists(AUDIT_FILE):
-        df_existing = pd.read_excel(AUDIT_FILE)
+        df_existing = pd.read_excel(AUDIT_FILE, engine="openpyxl")
         df = pd.concat([df_existing, df], ignore_index=True)
     df.to_excel(AUDIT_FILE, index=False, engine="openpyxl")
     
@@ -106,13 +100,15 @@ else:
     
     # **SUBIR IMÁGENES DESDE GALERÍA**
     uploaded_files = st.file_uploader("📎 Seleccionar hasta 3 fotos desde la galería", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-    if uploaded_files:
+    if uploaded_files is not None and len(uploaded_files) > 0:
         os.makedirs(EVIDENCE_STORAGE_PATH, exist_ok=True)
         for i, file in enumerate(uploaded_files, 1):
             img_path = os.path.join(EVIDENCE_STORAGE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}_{i:02}.jpg")
             with open(img_path, "wb") as f:
                 f.write(file.getbuffer())
         st.success("✅ Evidencias guardadas correctamente.")
+    else:
+        st.warning("⚠️ No se seleccionaron archivos.")
     
     # **BOTÓN PARA TERMINAR PROCESO**
     if st.button("Terminar Proceso"):
