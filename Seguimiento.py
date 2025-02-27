@@ -114,3 +114,5 @@ else:
     # **BOTÓN PARA TERMINAR PROCESO**
     if st.button("Terminar Proceso"):
         st.success("✅ Proceso finalizado. Puede registrar una nueva actividad si lo desea.")
+
+ 
