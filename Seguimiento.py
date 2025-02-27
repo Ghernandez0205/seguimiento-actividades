@@ -74,7 +74,8 @@ st.set_page_config(page_title="Registro de Visitas", layout="wide")
 st.title("📂 Registro de Visitas y Auditoría")
 
 # **AUTENTICACIÓN**
-if "authenticated" not in st.session_state:
+if 'authenticated' not in st.session_state:
+    st.session_state['authenticated'] = False
     st.session_state["authenticated"] = False
 
 if not st.session_state["authenticated"]:
@@ -84,7 +85,7 @@ if not st.session_state["authenticated"]:
         if verify_totp(user_totp):
             st.session_state["authenticated"] = True
             st.success("✅ Autenticación completada con éxito.")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("🚫 Código incorrecto. Intenta de nuevo.")
 else:
@@ -117,3 +118,4 @@ else:
         st.success(f"✅ Documento convertido a PDF: {pdf_path}")
     
     # **SUBIR ARCHIVOS A ONEDRIVE (OPCIONAL)**
+
