@@ -76,12 +76,34 @@ else:
     # **ENTRADA DE DATOS**
     actividad = st.text_input("📌 Ingrese la actividad:")
     fecha_actividad = st.date_input("📅 Seleccione la fecha de la actividad:")
+    metas = [
+        "Efectuar 3 Informes trimestrales del Programa de mejora de la supervisión",
+        "Realizar 12 Informes de Actividades Relevantes",
+        "Realizar seguimiento a la implementación de los planes de asesoría",
+        "Realizar 10 jornadas académicas para fortalecer la comunicación interna",
+        "Implementar acciones de actualización en asesoría y comunicación asertiva",
+        "Promover la participación de los PCD y ECAEF en los CTE",
+        "Implementar estrategias en el Consejo Técnico Escolar",
+        "Acompañar la implementación del Plan y Programas de Estudio",
+        "Aplicar asesoría en Educación Física en educación básica",
+        "Lograr la participación del 100% de docentes en el CTE",
+        "Asesorar al 100% de docentes con y sin perfil profesional",
+        "Intervención en el CTE y talleres intensivos de formación continua",
+        "Actualizar sobre la propuesta curricular 2022",
+        "Realizar visitas de asesoría a docentes de secundaria",
+        "Ejecutar estrategias en proyectos de educación física estatales",
+        "Diseñar estrategias de actividad física y cuidado de la salud",
+        "Fortalecer estrategias académicas en el 100% de escuelas",
+        "Implementar las etapas de los Juegos Deportivos Escolares"
+    ]
+    meta_seleccionada = st.selectbox("🎯 Seleccione la meta atendida:", metas)
     
     # **GUARDADO DE AUDITORÍA**
     if st.button("Guardar Registro de Auditoría"):
         data = {
             "Fecha": fecha_actividad.strftime("%Y-%m-%d"),
-            "Actividad": actividad
+            "Actividad": actividad,
+            "Meta": meta_seleccionada
         }
         save_to_audit(data)
         st.success("✅ Registro guardado en auditoría.")
@@ -100,7 +122,7 @@ else:
     
     # **SUBIR IMÁGENES DESDE GALERÍA**
     uploaded_files = st.file_uploader("📎 Seleccionar hasta 3 fotos desde la galería", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
-    if uploaded_files is not None and len(uploaded_files) > 0:
+    if uploaded_files:
         os.makedirs(EVIDENCE_STORAGE_PATH, exist_ok=True)
         for i, file in enumerate(uploaded_files, 1):
             img_path = os.path.join(EVIDENCE_STORAGE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}_{i:02}.jpg")
