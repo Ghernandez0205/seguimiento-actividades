@@ -42,6 +42,8 @@ def get_access_token():
 # **FUNCIÓN PARA GUARDAR EN EXCEL Y CSV**
 def save_to_audit(data):
     df = pd.DataFrame([data])
+    os.makedirs(BASE_STORAGE_PATH, exist_ok=True)
+    
     if os.path.exists(AUDIT_FILE):
         df_existing = pd.read_excel(AUDIT_FILE)
         df = pd.concat([df_existing, df], ignore_index=True)
@@ -94,6 +96,7 @@ else:
     st.subheader("📸 Tomar foto del documento y convertirlo en PDF (Opcional)")
     captured_photo = st.camera_input("Capturar documento")
     if captured_photo:
+        os.makedirs(VISIT_STORAGE_PATH, exist_ok=True)
         img_path = os.path.join(VISIT_STORAGE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}.jpg")
         with open(img_path, "wb") as f:
             f.write(captured_photo.getbuffer())
@@ -104,6 +107,7 @@ else:
     # **SUBIR IMÁGENES DESDE GALERÍA**
     uploaded_files = st.file_uploader("📎 Seleccionar hasta 3 fotos desde la galería", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
     if uploaded_files:
+        os.makedirs(EVIDENCE_STORAGE_PATH, exist_ok=True)
         for i, file in enumerate(uploaded_files, 1):
             img_path = os.path.join(EVIDENCE_STORAGE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}_{i:02}.jpg")
             with open(img_path, "wb") as f:
