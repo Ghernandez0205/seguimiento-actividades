@@ -25,6 +25,9 @@ EVIDENCE_STORAGE_PATH = os.path.join(BASE_STORAGE_PATH, "Evidencia fotografica")
 AUDIT_FILE = os.path.join(BASE_STORAGE_PATH, "registro_auditoria.xlsx")
 AUDIT_CSV_FILE = os.path.join(BASE_STORAGE_PATH, "registro_auditoria.csv")
 
+# **CONFIGURACIÓN DE STREAMLIT**
+st.set_page_config(page_title="Registro de Visitas", layout="wide")
+
 # **FUNCIÓN PARA AUTENTICACIÓN**
 def verify_totp(user_code):
     totp = pyotp.TOTP(SECRET_KEY)
@@ -55,7 +58,6 @@ def save_image_as_pdf(image_path, pdf_path):
     img.save(pdf_path, "PDF", resolution=100.0)
 
 # **INTERFAZ EN STREAMLIT**
-st.set_page_config(page_title="Registro de Visitas", layout="wide")
 st.title("📂 Registro de Visitas y Auditoría")
 
 # **AUTENTICACIÓN**
