@@ -47,6 +47,7 @@ def save_to_audit(data):
         df_existing_csv = pd.read_csv(AUDIT_CSV_FILE)
         df = pd.concat([df_existing_csv, df], ignore_index=True)
     df.to_csv(AUDIT_CSV_FILE, index=False)
+    st.success(f"✅ Auditoría guardada en: {AUDIT_FILE}")
 
 # **FUNCIÓN PARA GENERAR PDF**
 def save_image_as_pdf(image_path, pdf_path):
@@ -76,26 +77,7 @@ else:
     # **ENTRADA DE DATOS**
     actividad = st.text_input("📌 Ingrese la actividad:")
     fecha_actividad = st.date_input("📅 Seleccione la fecha de la actividad:")
-    metas = [
-        "Efectuar 3 Informes trimestrales del Programa de mejora de la supervisión",
-        "Realizar 12 Informes de Actividades Relevantes",
-        "Realizar seguimiento a la implementación de los planes de asesoría",
-        "Realizar 10 jornadas académicas para fortalecer la comunicación interna",
-        "Implementar acciones de actualización en asesoría y comunicación asertiva",
-        "Promover la participación de los PCD y ECAEF en los CTE",
-        "Implementar estrategias en el Consejo Técnico Escolar",
-        "Acompañar la implementación del Plan y Programas de Estudio",
-        "Aplicar asesoría en Educación Física en educación básica",
-        "Lograr la participación del 100% de docentes en el CTE",
-        "Asesorar al 100% de docentes con y sin perfil profesional",
-        "Intervención en el CTE y talleres intensivos de formación continua",
-        "Actualizar sobre la propuesta curricular 2022",
-        "Realizar visitas de asesoría a docentes de secundaria",
-        "Ejecutar estrategias en proyectos de educación física estatales",
-        "Diseñar estrategias de actividad física y cuidado de la salud",
-        "Fortalecer estrategias académicas en el 100% de escuelas",
-        "Implementar las etapas de los Juegos Deportivos Escolares"
-    ]
+    metas = ["Efectuar 3 Informes trimestrales", "Supervisión en campo", "Capacitación docente"]
     meta_seleccionada = st.selectbox("🎯 Seleccione la meta atendida:", metas)
     
     # **GUARDADO DE AUDITORÍA**
@@ -106,7 +88,6 @@ else:
             "Meta": meta_seleccionada
         }
         save_to_audit(data)
-        st.success("✅ Registro guardado en auditoría.")
     
     # **CARGAR Y PROCESAR IMÁGENES**
     st.subheader("📸 Tomar foto del documento y convertirlo en PDF (Opcional)")
@@ -118,7 +99,7 @@ else:
             f.write(captured_photo.getbuffer())
         pdf_path = img_path.replace(".jpg", ".pdf")
         save_image_as_pdf(img_path, pdf_path)
-        st.success(f"✅ Documento convertido a PDF: {pdf_path}")
+        st.success(f"✅ Documento convertido a PDF y guardado en: {pdf_path}")
     
     # **SUBIR IMÁGENES DESDE GALERÍA**
     uploaded_files = st.file_uploader("📎 Seleccionar hasta 3 fotos desde la galería", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
@@ -128,9 +109,7 @@ else:
             img_path = os.path.join(EVIDENCE_STORAGE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}_{i:02}.jpg")
             with open(img_path, "wb") as f:
                 f.write(file.getbuffer())
-        st.success("✅ Evidencias guardadas correctamente.")
-    else:
-        st.warning("⚠️ No se seleccionaron archivos.")
+        st.success(f"✅ Evidencias guardadas en: {EVIDENCE_STORAGE_PATH}")
     
     # **BOTÓN PARA TERMINAR PROCESO**
     if st.button("Terminar Proceso"):
