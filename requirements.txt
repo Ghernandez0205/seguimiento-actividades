@@ -5,3 +5,4 @@ numpy
 fpdf
 opencv-python-headless
 easyocr
+sqlite3
