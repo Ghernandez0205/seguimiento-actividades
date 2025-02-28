@@ -5,3 +5,5 @@ pytesseract
 pillow
 fpdf
 sqlite3
+watchdog
+openpyxl
