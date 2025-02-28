@@ -3,6 +3,9 @@ import os
 import time
 from PIL import Image
 
+# **Debe estar en la primera línea después de los imports**
+st.set_page_config(page_title="Registro de Visitas", layout="wide")
+
 # **CONFIGURACIÓN DE RUTA BASE EN ONEDRIVE**
 BASE_ONEDRIVE_PATH = r"C:\Users\sup11\OneDrive\Attachments\Documentos\Interfaces de phyton\Proyecto almacenamiento interactivo"
 
@@ -24,8 +27,6 @@ ONEDRIVE_STORAGE_PATH = os.path.join(BASE_ONEDRIVE_PATH, carpeta_seleccionada)
 if not os.path.exists(ONEDRIVE_STORAGE_PATH):
     os.makedirs(ONEDRIVE_STORAGE_PATH)
 
-# **CONFIGURACIÓN DE STREAMLIT**
-st.set_page_config(page_title="Registro de Visitas", layout="wide")
 st.title("📂 Registro de Visitas en OneDrive")
 
 # **ENTRADA DE DATOS**
