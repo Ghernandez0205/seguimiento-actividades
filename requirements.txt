@@ -1,9 +1,5 @@
 streamlit
 pandas
-opencv-python
-pytesseract
 pillow
+numpy
 fpdf
-sqlite3
-watchdog
-openpyxl
