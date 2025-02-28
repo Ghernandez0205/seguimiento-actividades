@@ -1,122 +1,106 @@
 import streamlit as st
 import pandas as pd
 import os
-import requests
-import pyotp
+import cv2
+import pytesseract
+import sqlite3
+import zipfile
 from datetime import datetime
-from msal import ConfidentialClientApplication
 from fpdf import FPDF
 from PIL import Image
 
-# **CONFIGURACIÓN DE AZURE AD**
-CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
-TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"
-CLIENT_SECRET = "TU_SECRETO_DE_CLIENTE"
-AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
-SCOPES = ["Files.ReadWrite.All", "User.Read", "offline_access"]
+# **CONFIGURACIÓN DE RUTAS**
+BASE_PATH = "C:/Users/sup11/OneDrive/Attachments/Documentos/Interfaces de phyton/Proyecto almacenamiento interactivo"
+VISIT_PATH = os.path.join(BASE_PATH, "Visitas")
+EVIDENCE_PATH = os.path.join(BASE_PATH, "Evidencia fotografica")
+DB_PATH = os.path.join(BASE_PATH, "auditoria.sqlite")
+ZIP_PATH = os.path.join(BASE_PATH, "Zips")
 
-# **AUTENTICACIÓN CON MICROSOFT GRAPH**
-def get_access_token():
-    app = ConfidentialClientApplication(
-        CLIENT_ID, authority=AUTHORITY, client_credential=CLIENT_SECRET
-    )
-    result = app.acquire_token_for_client(scopes=SCOPES)
-    return result.get("access_token", None)
+# **CREAR BASE DE DATOS SI NO EXISTE**
+def create_database():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS auditoria (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha TEXT,
+            actividad TEXT,
+            turno TEXT,
+            documento TEXT,
+            texto_ocr TEXT,
+            fotos TEXT,
+            meta TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
-def get_folder_id(folder_name):
-    """ Obtiene el ID de la carpeta en OneDrive """
-    access_token = get_access_token()
-    if not access_token:
-        st.error("Error: No se pudo obtener el token de acceso.")
-        return None
+# **GUARDAR REGISTRO EN BASE DE DATOS**
+def save_audit_record(fecha, actividad, turno, documento, texto_ocr, fotos, meta):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''INSERT INTO auditoria (fecha, actividad, turno, documento, texto_ocr, fotos, meta) 
+                      VALUES (?, ?, ?, ?, ?, ?, ?)''', 
+                   (fecha, actividad, turno, documento, texto_ocr, fotos, meta))
+    conn.commit()
+    conn.close()
 
-    url = "https://graph.microsoft.com/v1.0/me/drive/root/children"
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == 200:
-        folders = response.json().get("value", [])
-        for folder in folders:
-            if folder["name"] == folder_name:
-                return folder["id"]
-    st.error(f"Error: No se encontró la carpeta {folder_name}.")
-    return None
-
-def upload_to_onedrive(file_path, folder_name, file_name):
-    access_token = get_access_token()
-    if not access_token:
-        st.error("Error: No se pudo obtener el token de acceso.")
-        return
-
-    folder_id = get_folder_id(folder_name)
-    if not folder_id:
-        return
-
-    url = f"https://graph.microsoft.com/v1.0/me/drive/items/{folder_id}:/{file_name}:/content"
-    headers = {"Authorization": f"Bearer {access_token}"}
+# **CONVERSIÓN DE FOTO A PDF Y OCR**
+def process_document(image_path, pdf_path):
+    img = Image.open(image_path).convert("RGB")
+    img.save(pdf_path, "PDF", resolution=100.0)
     
-    with open(file_path, "rb") as f:
-        response = requests.put(url, headers=headers, data=f)
-    
-    if response.status_code in [200, 201]:
-        st.success(f"✅ Archivo subido a OneDrive: {folder_name}/{file_name}")
-    else:
-        st.error(f"Error al subir archivo: {response.text}")
+    text = pytesseract.image_to_string(cv2.imread(image_path))
+    return text
 
-# **RUTAS DE GUARDADO**
-AUDIT_FILE = "registro_auditoria.xlsx"
-VISIT_FOLDER = "Visitas"
-EVIDENCE_FOLDER = "Evidencia fotografica"
-AUDIT_FOLDER = "Auditoria"
+# **INTERFAZ DE STREAMLIT**
+st.set_page_config(page_title="Registro de Actividades", layout="wide")
+st.title("📂 Registro de Actividades con OCR")
 
-# **CONFIGURACIÓN DE STREAMLIT**
-st.set_page_config(page_title="Registro de Visitas", layout="wide")
-
-st.title("📂 Registro de Visitas y Auditoría")
-
-# **ENTRADA DE DATOS**
+# **SELECCIÓN DE ACTIVIDAD Y TURNO**
 actividad = st.text_input("📌 Ingrese la actividad:")
 fecha_actividad = st.date_input("📅 Seleccione la fecha de la actividad:")
-metas = ["Efectuar 3 Informes trimestrales", "Supervisión en campo", "Capacitación docente"]
-meta_seleccionada = st.selectbox("🎯 Seleccione la meta atendida:", metas)
+turno = st.radio("⏰ Seleccione el turno:", ("Matutino (08:00 - 12:30)", "Vespertino (13:30 - 16:30)"))
 
-# **GUARDADO DE AUDITORÍA**
-def save_to_audit(data):
-    df = pd.DataFrame([data])
-    if os.path.exists(AUDIT_FILE):
-        df_existing = pd.read_excel(AUDIT_FILE, engine="openpyxl")
-        df = pd.concat([df_existing, df], ignore_index=True)
-    df.to_excel(AUDIT_FILE, index=False, engine="openpyxl")
-    upload_to_onedrive(AUDIT_FILE, AUDIT_FOLDER, "registro_auditoria.xlsx")
-    st.success(f"✅ Auditoría guardada y subida a OneDrive.")
-
-if st.button("Guardar Registro de Auditoría"):
-    data = {"Fecha": fecha_actividad.strftime("%Y-%m-%d"), "Actividad": actividad, "Meta": meta_seleccionada}
-    save_to_audit(data)
-
-# **CAPTURA DE FOTO Y CONVERSIÓN A PDF**
-st.subheader("📸 Tomar foto del documento y convertirlo en PDF (Opcional)")
+# **PROCESAMIENTO DE DOCUMENTO CON OCR**
+st.subheader("📸 Captura de documento y conversión a PDF con OCR")
 captured_photo = st.camera_input("Capturar documento")
 if captured_photo:
-    img_path = f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}.jpg"
+    img_path = os.path.join(VISIT_PATH, f"Visita-{actividad}-{fecha_actividad.strftime('%Y-%m-%d')}.jpg")
     pdf_path = img_path.replace(".jpg", ".pdf")
     with open(img_path, "wb") as f:
         f.write(captured_photo.getbuffer())
-    img = Image.open(img_path).convert("RGB")
-    img.save(pdf_path, "PDF", resolution=100.0)
-    upload_to_onedrive(pdf_path, VISIT_FOLDER, pdf_path)
-    st.success(f"✅ Documento convertido y subido a OneDrive como PDF.")
+    text_extracted = process_document(img_path, pdf_path)
+    st.success(f"✅ Documento procesado y guardado como PDF con OCR.")
 
-# **SUBIDA DE FOTOS DESDE GALERÍA**
-uploaded_files = st.file_uploader("📎 Seleccionar hasta 3 fotos desde la galería", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+# **SUBIDA DE FOTOGRAFÍAS**
+st.subheader("📎 Cargar hasta 3 fotos de la actividad")
+uploaded_files = st.file_uploader("Seleccione imágenes", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+foto_paths = []
 if uploaded_files:
     for i, file in enumerate(uploaded_files, 1):
-        file_name = f"{actividad}_{fecha_actividad.strftime('%Y-%m-%d')}_{i:02}.jpg"
-        with open(file_name, "wb") as f:
+        file_name = f"{actividad}-{fecha_actividad.strftime('%Y-%m-%d')}-{i:02}.jpg"
+        file_path = os.path.join(EVIDENCE_PATH, file_name)
+        with open(file_path, "wb") as f:
             f.write(file.getbuffer())
-        upload_to_onedrive(file_name, EVIDENCE_FOLDER, file_name)
-    st.success("✅ Evidencias subidas a OneDrive.")
+        foto_paths.append(file_name)
+    st.success("✅ Evidencias guardadas correctamente.")
 
-# **TERMINAR PROCESO**
-if st.button("Terminar Proceso"):
-    st.success("✅ Proceso finalizado. Puede registrar una nueva actividad si lo desea.")
+# **SELECCIÓN DE META**
+st.subheader("🎯 Seleccionar Meta de Actividad")
+meta_df = pd.read_excel("/mnt/data/Avance de metas 24-25.xlsx")  # Cargar metas desde el archivo
+meta = st.selectbox("Seleccione la meta correspondiente:", meta_df['Meta'].tolist())
+
+# **GUARDAR REGISTRO EN BASE DE DATOS**
+if st.button("Guardar Registro"):
+    save_audit_record(fecha_actividad.strftime('%Y-%m-%d'), actividad, turno, pdf_path, text_extracted, ",".join(foto_paths), meta)
+    st.success("✅ Registro guardado en la base de datos.")
+
+# **GENERACIÓN DE ARCHIVO ZIP PARA DETECCIÓN LOCAL**
+if st.button("Generar Archivo ZIP"):
+    zip_filename = os.path.join(ZIP_PATH, f"registro_de_actividades_personales_{fecha_actividad.strftime('%Y%m%d')}.zip")
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        zipf.write(pdf_path, os.path.basename(pdf_path))
+        for foto in foto_paths:
+            zipf.write(os.path.join(EVIDENCE_PATH, foto), os.path.basename(foto))
+    st.success(f"✅ Archivo ZIP generado: {zip_filename}")
