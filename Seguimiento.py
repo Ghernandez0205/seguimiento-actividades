@@ -3,31 +3,39 @@ import os
 import time
 from PIL import Image
 
-# **Debe estar en la primera línea después de los imports**
+# **La PRIMERA instrucción debe ser set_page_config**
 st.set_page_config(page_title="Registro de Visitas", layout="wide")
 
 # **CONFIGURACIÓN DE RUTA BASE EN ONEDRIVE**
 BASE_ONEDRIVE_PATH = r"C:\Users\sup11\OneDrive\Attachments\Documentos\Interfaces de phyton\Proyecto almacenamiento interactivo"
 
-# **SELECCIÓN DE CARPETA EN ONEDRIVE**
+# **INTERFAZ STREAMLIT**
 st.sidebar.header("📂 Selección de Carpeta")
-carpeta_opciones = ["Visitas", "Evidencia fotografica", "Otras Carpeta..."]
+carpeta_opciones = ["Visitas", "Evidencia fotografica", "Otra Carpeta..."]
 carpeta_seleccionada = st.sidebar.selectbox("Seleccione la carpeta de OneDrive:", carpeta_opciones)
 
-# Si el usuario elige "Otras Carpeta...", permite escribir un nombre personalizado
-if carpeta_seleccionada == "Otras Carpeta...":
+# Si el usuario elige "Otra Carpeta...", permite escribir un nombre personalizado
+if carpeta_seleccionada == "Otra Carpeta...":
     carpeta_personalizada = st.sidebar.text_input("Ingrese el nombre de la carpeta:")
     if carpeta_personalizada:
         carpeta_seleccionada = carpeta_personalizada
 
-# Definir la ruta de almacenamiento en OneDrive
+# **No creamos la carpeta automáticamente aquí, solo definimos la ruta**
 ONEDRIVE_STORAGE_PATH = os.path.join(BASE_ONEDRIVE_PATH, carpeta_seleccionada)
 
-# **Verificar y Crear la Carpeta si No Existe**
-if not os.path.exists(ONEDRIVE_STORAGE_PATH):
-    os.makedirs(ONEDRIVE_STORAGE_PATH)
-
+# **CONFIGURACIÓN DE STREAMLIT**
 st.title("📂 Registro de Visitas en OneDrive")
+
+# **BOTÓN PARA CREAR LA CARPETA EN ONEDRIVE**
+if st.button("🔄 Crear Carpeta en OneDrive"):
+    try:
+        if not os.path.exists(ONEDRIVE_STORAGE_PATH):
+            os.makedirs(ONEDRIVE_STORAGE_PATH)
+            st.success(f"✅ Carpeta creada: {ONEDRIVE_STORAGE_PATH}")
+        else:
+            st.info(f"📁 La carpeta ya existe en: {ONEDRIVE_STORAGE_PATH}")
+    except Exception as e:
+        st.error(f"❌ Error al crear la carpeta: {e}")
 
 # **ENTRADA DE DATOS**
 actividad = st.text_input("📌 Ingrese la actividad:")
@@ -47,10 +55,8 @@ if captured_photo:
         # **Verificar que el archivo realmente se guardó**
         if os.path.exists(img_path):
             st.success(f"✅ Archivo guardado en OneDrive: {img_path}")
-
-            # **Forzar sincronización de OneDrive**
-            time.sleep(3)
-            os.system(f"attrib +S +H \"{img_path}\"")  # Asegurar que OneDrive lo sincronice
+            time.sleep(3)  # Esperar para que OneDrive lo sincronice
+            os.system(f"attrib +S +H \"{img_path}\"")  # Forzar sincronización
 
         else:
             st.error(f"❌ ERROR: El archivo no se guardó en {img_path}")
