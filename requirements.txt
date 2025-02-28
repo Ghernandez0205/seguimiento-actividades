@@ -1,10 +1,7 @@
 streamlit
 pandas
-office365-rest-python-client
-msal
-requests
+opencv-python
+pytesseract
 pillow
-opencv-python-headless
 fpdf
-pyotp
-openpyxl
+sqlite3
