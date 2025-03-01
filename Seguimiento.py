@@ -100,15 +100,17 @@ if st.button("Guardar Registro de Auditoría"):
             f.write(file.getbuffer())
     st.success("✅ Evidencias guardadas correctamente.")
 
-    # **GENERACIÓN DE ZIP**
+    # **GENERACIÓN DE ZIP CON VERIFICACIÓN**
     zip_name = f"Registro_de_actividades_{fecha_actividad.strftime('%Y%m%d')}.zip"
     zip_path = os.path.join(ZIP_PATH, zip_name)
     with zipfile.ZipFile(zip_path, 'w') as zipf:
-        zipf.write(audit_file, os.path.basename(audit_file))
-        if documento:
+        if os.path.exists(audit_file):
+            zipf.write(audit_file, os.path.basename(audit_file))
+        if documento and os.path.exists(doc_path):
             zipf.write(doc_path, os.path.basename(doc_path))
         for file in uploaded_files:
             file_path = os.path.join(EVIDENCE_PATH, file.name)
-            zipf.write(file_path, os.path.basename(file.name))
+            if os.path.exists(file_path):
+                zipf.write(file_path, os.path.basename(file.name))
     st.success("✅ ZIP generado correctamente y listo para descarga.")
     st.download_button(label="📥 Descargar Registro ZIP", data=open(zip_path, "rb"), file_name=zip_name, mime="application/zip")
