@@ -103,3 +103,22 @@ if st.button("Guardar Registro de Auditoría"):
         with open(file_path, "wb") as f:
             f.write(file.getbuffer())
     st.success("✅ Evidencias guardadas correctamente.")
+
+    # **CREAR Y PERMITIR DESCARGA DEL ZIP**
+    zip_filename = os.path.join(ZIP_PATH, f"Registro_{actividad}_{fecha_actividad.strftime('%Y%m%d')}.zip")
+    with zipfile.ZipFile(zip_filename, 'w') as zipf:
+        # Agregar archivo de auditoría
+        zipf.write(audit_file, os.path.basename(audit_file))
+        # Agregar documento principal
+        if documento:
+            zipf.write(doc_path, os.path.basename(doc_path))
+        # Agregar evidencias
+        for idx, file in enumerate(uploaded_files):
+            file_path = os.path.join(EVIDENCE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y%m%d')}_evidencia{idx+1}.jpg")
+            zipf.write(file_path, os.path.basename(file_path))
+
+    # Mostrar botón de descarga en Streamlit
+    with open(zip_filename, "rb") as f:
+        st.download_button(label="📥 Descargar Registro ZIP", data=f, file_name=os.path.basename(zip_filename), mime="application/zip")
+    st.success("✅ Archivo ZIP generado y listo para descargar.")
+
