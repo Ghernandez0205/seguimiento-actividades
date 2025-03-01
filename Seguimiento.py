@@ -3,7 +3,6 @@ import pandas as pd
 import os
 import zipfile
 from datetime import datetime
-from fpdf import FPDF
 from PIL import Image
 
 # **CONFIGURACIÓN DE RUTAS**
@@ -30,15 +29,15 @@ metas = [
     "Diseñar e implementar las etapas de los Juegos Deportivos Escolares"
 ]
 
-# **LISTA DE CÓDIGOS PARA ATLAS.TI**
-codigos_atlasti = [
-    "Éxito en la Implementación",
-    "Desafíos y Obstáculos",
-    "Impacto Positivo",
-    "Requiere Mejoras",
-    "Participación Baja",
-    "Alta Eficiencia en Recursos"
-]
+# **LISTA DE CÓDIGOS PARA ATLAS.TI CON COLORES**
+codigos_atlasti = {
+    "Éxito en la Implementación": "🟢",
+    "Desafíos y Obstáculos": "🟠",
+    "Impacto Positivo": "🔵",
+    "Requiere Mejoras": "🔴",
+    "Participación Baja": "⚫",
+    "Alta Eficiencia en Recursos": "🟣"
+}
 
 # **INTERFAZ DE STREAMLIT**
 st.set_page_config(page_title="Registro de Actividades en Streamlit", layout="wide")
@@ -55,7 +54,7 @@ meta_seleccionada = st.selectbox("Seleccione la meta atendida:", metas)
 
 # **SELECCIÓN DE CÓDIGO PARA ATLAS.TI**
 st.subheader("🏷️ Seleccionar Código para Atlas.ti")
-codigo_atlasti = st.selectbox("Seleccione un código:", codigos_atlasti)
+codigo_atlasti = st.selectbox("Seleccione un código:", [f"{color} {codigo}" for codigo, color in codigos_atlasti.items()])
 
 # **PREGUNTAS DE EVALUACIÓN PARA ANÁLISIS ESTADÍSTICO**
 st.subheader("📊 Evaluación de la Actividad")
@@ -63,8 +62,8 @@ pregunta_1 = st.slider("Nivel de participación (1-10):", 1, 10, 5)
 pregunta_2 = st.slider("Organización del evento (1-10):", 1, 10, 5)
 pregunta_3 = st.slider("Impacto en los participantes (1-10):", 1, 10, 5)
 
-# **SUBIDA DEL DOCUMENTO A CONVERTIR EN PDF**
-st.subheader("📄 Seleccione el documento principal en imagen para convertir en PDF")
+# **SUBIDA DEL DOCUMENTO PRINCIPAL**
+st.subheader("📄 Seleccione el documento principal en imagen")
 documento = st.file_uploader("📎 Subir documento en formato JPG o PNG", type=["jpg", "jpeg", "png"])
 
 # **CAPTURA DE EVIDENCIAS**
@@ -91,11 +90,16 @@ if st.button("Guardar Registro de Auditoría"):
     df.to_excel(audit_file, index=False)
     st.success("✅ Registro de auditoría guardado correctamente.")
 
-    # **GENERACIÓN DE ZIP**
-    zip_name = f"Registro_de_actividades_{fecha_actividad.strftime('%Y%m%d')}.zip"
-    zip_path = os.path.join(ZIP_PATH, zip_name)
-    with zipfile.ZipFile(zip_path, 'w') as zipf:
-        if os.path.exists(audit_file):
-            zipf.write(audit_file, os.path.basename(audit_file))
-    st.success("✅ ZIP generado correctamente y listo para descarga.")
-    st.download_button(label="📥 Descargar Registro ZIP", data=open(zip_path, "rb"), file_name=zip_name, mime="application/zip")
+    # **GUARDAR DOCUMENTO PRINCIPAL**
+    if documento:
+        doc_path = os.path.join(DOCUMENT_PATH, f"Visita_{actividad}_{fecha_actividad.strftime('%Y%m%d')}.jpg")
+        with open(doc_path, "wb") as f:
+            f.write(documento.getbuffer())
+        st.success("✅ Documento guardado correctamente.")
+
+    # **GUARDAR EVIDENCIAS**
+    for idx, file in enumerate(uploaded_files):
+        file_path = os.path.join(EVIDENCE_PATH, f"{actividad}_{fecha_actividad.strftime('%Y%m%d')}_evidencia{idx+1}.jpg")
+        with open(file_path, "wb") as f:
+            f.write(file.getbuffer())
+    st.success("✅ Evidencias guardadas correctamente.")
