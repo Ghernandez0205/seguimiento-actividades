@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+import zipfile
 from datetime import datetime
 from fpdf import FPDF
 from PIL import Image
@@ -10,38 +11,19 @@ BASE_PATH = "C:/Users/sup11/OneDrive/Attachments/Documentos/Interfaces de phyton
 AUDIT_PATH = os.path.join(BASE_PATH, "Auditorias")
 EVIDENCE_PATH = os.path.join(BASE_PATH, "Evidencia fotografica")
 DOCUMENT_PATH = os.path.join(BASE_PATH, "Visitas")
+ZIP_PATH = os.path.join(BASE_PATH, "Registros_ZIP")
 
 # **CREAR CARPETAS SI NO EXISTEN**
 os.makedirs(AUDIT_PATH, exist_ok=True)
 os.makedirs(EVIDENCE_PATH, exist_ok=True)
 os.makedirs(DOCUMENT_PATH, exist_ok=True)
+os.makedirs(ZIP_PATH, exist_ok=True)
 
-# **CÓDIGOS ATLAS.TI Y COLORES**
-codes_dict = {
-    "Participación Activa": "🟢 Verde",
-    "Baja Participación": "🟡 Amarillo",
-    "Problemas Organizativos": "🔴 Rojo",
-    "Éxito en la Implementación": "🟢 Verde",
-    "Requiere Seguimiento": "🔵 Azul",
-    "Impacto Social": "🟣 Morado"
-}
-
-# **LISTA DE METAS INTEGRADAS EN EL CÓDIGO**
+# **LISTA DE METAS**
 metas = [
     "Efectuar 3 Informes trimestrales del Programa de mejora de la supervisión",
     "Realizar 12 Informes (uno cada mes) de Actividades Relevantes",
     "Realizar seguimiento a la implementación de los planes de asesoría en los diferentes niveles educativos",
-    "Realizar 10 jornadas académicas con la estructura de supervisión para fortalecer la comunicación interna",
-    "Implementar acciones para la actualización sobre métodos de asesoría y comunicación asertiva",
-    "Promover la participación de los PCD y ECAEF en los CTE para implementar el plan analítico",
-    "Implementar una estrategia de intervención y colaboración en el Consejo Técnico Escolar",
-    "Desarrollar una estrategia de acompañamiento en la implementación del Plan y Programas de Estudio",
-    "Aplicar un plan de asesoría de Educación Física en educación básica",
-    "Lograr la participación del 100% de docentes en el CTE",
-    "Realizar asesoría y acompañamiento para el 100% de docentes con y sin perfil profesional",
-    "Desarrollar una estrategia de intervención en el CTE y talleres intensivos de formación continua",
-    "Desarrollar una estrategia de actualización sobre la propuesta curricular 2022",
-    "Realizar al menos tres visitas trimestrales de asesoría a docentes de secundaria",
     "Implementar estrategias para proyectos de educación física estatales",
     "Diseñar una estrategia para la actividad física y el cuidado de la salud en el 100% de las escuelas",
     "Implementar al 100% las estrategias de fortalecimiento académico",
@@ -61,6 +43,12 @@ turno = st.radio("⏰ Seleccione el turno:", ("Matutino (08:00 - 12:30)", "Vespe
 st.subheader("🎯 Selección de la Meta Atendida")
 meta_seleccionada = st.selectbox("Seleccione la meta atendida:", metas)
 
+# **PREGUNTAS DE EVALUACIÓN PARA ANÁLISIS ESTADÍSTICO**
+st.subheader("📊 Evaluación de la Actividad")
+pregunta_1 = st.slider("Nivel de participación (1-10):", 1, 10, 5)
+pregunta_2 = st.slider("Organización del evento (1-10):", 1, 10, 5)
+pregunta_3 = st.slider("Impacto en los participantes (1-10):", 1, 10, 5)
+
 # **SUBIDA DEL DOCUMENTO A CONVERTIR EN PDF**
 st.subheader("📄 Seleccione el documento principal en imagen para convertir en PDF")
 documento = st.file_uploader("📎 Subir documento en formato JPG o PNG", type=["jpg", "jpeg", "png"])
@@ -69,21 +57,13 @@ documento = st.file_uploader("📎 Subir documento en formato JPG o PNG", type=[
 st.subheader("📸 Captura de Evidencias de la Actividad")
 uploaded_files = st.file_uploader("Seleccione imágenes", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-# **SELECCIÓN DE CÓDIGO ATLAS.TI**
-st.subheader("🏷️ Seleccionar Código para Atlas.ti")
-codigo_seleccionado = st.selectbox("Seleccione un código:", list(codes_dict.keys()) + ["Otro"])
-
-if codigo_seleccionado == "Otro":
-    nuevo_codigo = st.text_input("Ingrese un nuevo código:")
-    nuevo_color = st.color_picker("Seleccione un color para el código:")
-    if nuevo_codigo:
-        codes_dict[nuevo_codigo] = nuevo_color
-        codigo_seleccionado = nuevo_codigo
-        color_codigo = nuevo_color
-    else:
-        color_codigo = ""
-else:
-    color_codigo = codes_dict[codigo_seleccionado]
+# **PREVISUALIZACIÓN DE IMÁGENES**
+if uploaded_files:
+    st.subheader("🖼️ Vista Previa de Evidencias")
+    cols = st.columns(len(uploaded_files))
+    for col, img in zip(cols, uploaded_files):
+        image = Image.open(img)
+        col.image(image, caption=img.name, use_column_width=True)
 
 # **GUARDAR REGISTRO EN EXCEL**
 if st.button("Guardar Registro de Auditoría"):
@@ -93,9 +73,9 @@ if st.button("Guardar Registro de Auditoría"):
         "Actividad": [actividad],
         "Meta Atendida": [meta_seleccionada],
         "Turno": [turno],
-        "Código_Atlas_TI": [codigo_seleccionado],
-        "Color_Código": [color_codigo],
-        "Observaciones": [""],
+        "Nivel de Participación": [pregunta_1],
+        "Organización del Evento": [pregunta_2],
+        "Impacto en los Participantes": [pregunta_3]
     }
     df = pd.DataFrame(data)
     if os.path.exists(audit_file):
@@ -120,3 +100,15 @@ if st.button("Guardar Registro de Auditoría"):
             f.write(file.getbuffer())
     st.success("✅ Evidencias guardadas correctamente.")
 
+    # **GENERACIÓN DE ZIP**
+    zip_name = f"Registro_de_actividades_{fecha_actividad.strftime('%Y%m%d')}.zip"
+    zip_path = os.path.join(ZIP_PATH, zip_name)
+    with zipfile.ZipFile(zip_path, 'w') as zipf:
+        zipf.write(audit_file, os.path.basename(audit_file))
+        if documento:
+            zipf.write(doc_path, os.path.basename(doc_path))
+        for file in uploaded_files:
+            file_path = os.path.join(EVIDENCE_PATH, file.name)
+            zipf.write(file_path, os.path.basename(file.name))
+    st.success("✅ ZIP generado correctamente y listo para descarga.")
+    st.download_button(label="📥 Descargar Registro ZIP", data=open(zip_path, "rb"), file_name=zip_name, mime="application/zip")
