@@ -39,10 +39,8 @@ def get_access_token():
     
     st.error(f"❌ Error obteniendo token: {token_response}")
     return None
-    else:
         st.error(f"❌ Error obteniendo token: {token_response}")
-        return None
-    else:
+    return None
         st.error(f"❌ Error obteniendo token: {token_response}")
         return None
 
