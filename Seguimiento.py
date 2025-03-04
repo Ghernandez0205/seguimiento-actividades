@@ -9,6 +9,7 @@ from msal import PublicClientApplication
 # **CONFIGURACIÓN DE MICROSOFT GRAPH**
 TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"
 CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
+CLIENT_SECRET = "899f17a0-8b57-4d67-a190-2e48cfdec797"
 SCOPES = ["https://graph.microsoft.com/.default"]
 GRAPH_API_URL = "https://graph.microsoft.com/v1.0"
 
@@ -22,18 +23,16 @@ FOLDER_PATHS = {
 
 def get_access_token():
     app = PublicClientApplication(CLIENT_ID, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
-
-    # Solicitar autenticación interactiva con código de dispositivo
     flow = app.initiate_device_flow(scopes=SCOPES)
+    
     if "user_code" not in flow:
-        st.error("❌ Error iniciando el flujo de autenticación interactiva")
+        st.error("❌ Error iniciando autenticación interactiva")
         return None
-
-    st.write("🔹 Por favor, ve a", flow["verification_uri"], "e ingresa este código:", flow["user_code"])
-
-    # Esperar a que el usuario complete la autenticación
+    
+    st.write(f"🔹 Ingresa el código en [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) y usa este código: {flow['user_code']}")
+    
     token_response = app.acquire_token_by_device_flow(flow)
-
+    
     if "access_token" in token_response:
         st.write("🔹 Token generado correctamente")
         return token_response["access_token"]
@@ -48,7 +47,7 @@ def upload_to_onedrive(file, folder, filename):
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/octet-stream"
     }
-    upload_url = f"{GRAPH_API_URL}/me/drive/root:/{folder}/{filename}:/content"
+    upload_url = f"{GRAPH_API_URL}/me/drive/root:/\{folder}\{filename}:/content"
     response = requests.put(upload_url, headers=headers, data=file.read())
     return response.status_code, response.json()
 
