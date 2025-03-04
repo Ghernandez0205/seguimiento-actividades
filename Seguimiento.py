@@ -29,10 +29,16 @@ def get_access_token():
             st.write("🔹 Token renovado correctamente")
             return token_response["access_token"]
     
-    flow = app.initiate_device_flow(scopes=SCOPES)
-    if "user_code" not in flow:
-        st.error("❌ Error iniciando autenticación interactiva")
-        return None
+    st.write("📲 Abre Microsoft Authenticator e ingresa el código de 6 dígitos generado para esta aplicación.")
+    
+    token_response = app.acquire_token_interactive(scopes=SCOPES)
+    
+    if "access_token" in token_response:
+        st.write("🔹 Token generado correctamente")
+        return token_response["access_token"]
+    
+    st.error(f"❌ Error obteniendo token: {token_response}")
+    return None
     
     st.write(f"🔹 Ingresa el código en [https://microsoft.com/devicelogin](https://microsoft.com/devicelogin) y usa este código: {flow['user_code']}")
     st.write("📲 Acepta la autenticación en tu aplicación de Microsoft Authenticator")
