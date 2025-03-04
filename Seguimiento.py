@@ -1,4 +1,4 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import os
 import requests
@@ -60,7 +60,7 @@ def get_access_token():
 def upload_to_onedrive(file, folder, filename):
     access_token = get_access_token()
     if not access_token:
-        return None
+        return None, {"error": "No se pudo obtener el token de autenticación."}
     
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -68,7 +68,14 @@ def upload_to_onedrive(file, folder, filename):
     }
     upload_url = f"{GRAPH_API_URL}/me/drive/root:/{folder}{filename}:/content"
     response = requests.put(upload_url, headers=headers, data=file.read())
-    return response.status_code, response.json()
+    
+    if response.status_code == 201:
+        file_info = response.json()
+        st.success(f"✅ Archivo subido correctamente: [{file_info['name']}]({file_info['webUrl']})")
+        return response.status_code, file_info
+    else:
+        st.error(f"❌ Error subiendo archivo: {response.json()}")
+        return response.status_code, response.json()
 
 st.title("📂 Registro de Actividades en OneDrive")
 actividad = st.text_input("📌 Ingrese la actividad:")
