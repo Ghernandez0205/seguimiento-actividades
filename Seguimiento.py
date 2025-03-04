@@ -36,6 +36,9 @@ def get_access_token():
     if "access_token" in token_response:
         st.write("🔹 Token generado correctamente")
         return token_response["access_token"]
+    
+    st.error(f"❌ Error obteniendo token: {token_response}")
+    return None
     else:
         st.error(f"❌ Error obteniendo token: {token_response}")
         return None
