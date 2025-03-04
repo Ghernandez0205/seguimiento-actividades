@@ -9,7 +9,7 @@ from msal import ConfidentialClientApplication
 # **CONFIGURACIÓN DE MICROSOFT GRAPH**
 TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"
 CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
-CLIENT_SECRET = "TU_SECRETO_DE_CLIENTE"
+CLIENT_SECRET = "899f17a0-8b57-4d67-a190-2e48cfdec797"
 SCOPES = ["https://graph.microsoft.com/.default"]
 GRAPH_API_URL = "https://graph.microsoft.com/v1.0"
 
