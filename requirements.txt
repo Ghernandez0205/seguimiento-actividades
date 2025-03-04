@@ -6,4 +6,4 @@ fpdf
 opencv-python-headless
 easyocr
 openpyxl
-msal
+
