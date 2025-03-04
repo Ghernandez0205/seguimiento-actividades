@@ -1,24 +1,3 @@
-import streamlit as st
-import pandas as pd
-import os
-import requests
-from datetime import datetime
-from msal import PublicClientApplication
-
-# **CONFIGURACIÓN DE MICROSOFT GRAPH**
-TENANT_ID = "2c9053b0-cfd0-484f-bc8f-5c045a175125"
-CLIENT_ID = "38597832-95f3-4cde-973e-5af2618665dc"
-SCOPES = ["https://graph.microsoft.com/.default"]
-GRAPH_API_URL = "https://graph.microsoft.com/v1.0"
-
-# **RUTAS EN ONEDRIVE**
-FOLDER_PATHS = {
-    "AUDIT": "Proyecto almacenamiento interactivo/Auditorias/",
-    "EVIDENCE": "Proyecto almacenamiento interactivo/Evidencia fotografica/",
-    "DOCUMENT": "Proyecto almacenamiento interactivo/Visitas/",
-    "ZIP": "Proyecto almacenamiento interactivo/Registros_ZIP/"
-}
-
 def get_access_token():
     app = PublicClientApplication(CLIENT_ID, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
     accounts = app.get_accounts()
