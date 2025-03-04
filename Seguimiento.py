@@ -21,15 +21,26 @@ FOLDER_PATHS = {
 }
 
 def get_access_token():
-    app = ConfidentialClientApplication(CLIENT_ID, client_credential=CLIENT_SECRET, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
-    token_response = app.acquire_token_for_client(scopes=SCOPES)
-    
+    app = PublicClientApplication(CLIENT_ID, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
+
+    # Solicitar autenticación interactiva con código de dispositivo
+    flow = app.initiate_device_flow(scopes=SCOPES)
+    if "user_code" not in flow:
+        st.error("❌ Error iniciando el flujo de autenticación interactiva")
+        return None
+
+    st.write("🔹 Por favor, ve a", flow["verification_uri"], "e ingresa este código:", flow["user_code"])
+
+    # Esperar a que el usuario complete la autenticación
+    token_response = app.acquire_token_by_device_flow(flow)
+
     if "access_token" in token_response:
         st.write("🔹 Token generado correctamente")
         return token_response["access_token"]
     else:
         st.error(f"❌ Error obteniendo token: {token_response}")
         return None
+
 
 def upload_to_onedrive(file, folder, filename):
     access_token = get_access_token()
