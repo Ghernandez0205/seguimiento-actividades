@@ -22,9 +22,15 @@ FOLDER_PATHS = {
 }
 
 def get_access_token():
-    app = ConfidentialClientApplication(CLIENT_ID, CLIENT_SECRET, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
+    app = ConfidentialClientApplication(CLIENT_ID, client_credential=CLIENT_SECRET, authority=f"https://login.microsoftonline.com/{TENANT_ID}")
     token_response = app.acquire_token_for_client(scopes=SCOPES)
-    return token_response.get("access_token")
+    
+    if "access_token" in token_response:
+        st.write("🔹 Token generado correctamente")
+        return token_response["access_token"]
+    else:
+        st.error(f"❌ Error obteniendo token: {token_response}")
+        return None
 
 def upload_to_onedrive(file, folder, filename):
     access_token = get_access_token()
